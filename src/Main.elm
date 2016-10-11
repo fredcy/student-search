@@ -29,7 +29,7 @@ type Msg
     | Error Http.Error
     | GotStudents (List Student)
     | SetQuery String
-    | SelectPerson String
+    | SelectStudent String
     | AutocompleteMsg Autocomplete.Msg
 
 
@@ -61,7 +61,7 @@ update msg model =
         AutocompleteMsg autoMsg ->
             let
                 ( newState, maybeMsg ) =
-                    Autocomplete.update autoConfig autoMsg 7 model.autoState (matchedStudents model.query model.students)
+                    Autocomplete.update updateConfig autoMsg 7 model.autoState (matchedStudents model.query model.students)
             in
                 { model | autoState = newState } ! []
 
@@ -72,8 +72,10 @@ update msg model =
 view : Model -> Html.Html Msg
 view model =
     Html.div []
-        [ Html.input [ HE.onInput SetQuery ] []
-        , Html.App.map AutocompleteMsg (Autocomplete.view viewConfig 7 model.autoState (matchedStudents model.query model.students))
+        [ Html.input [ HE.onInput SetQuery, HA.class "autocomplete-input" ] []
+        , Html.div [ HA.class "autocomplete-menu" ]
+            [ Html.App.map AutocompleteMsg (Autocomplete.view viewConfig 7 model.autoState (matchedStudents model.query model.students))
+            ]
         ]
 
 
@@ -98,21 +100,21 @@ studentsDecoder =
         Json.list student
 
 
-autoConfig : Autocomplete.UpdateConfig Msg Student
-autoConfig =
+updateConfig : Autocomplete.UpdateConfig Msg Student
+updateConfig =
     Autocomplete.updateConfig
         { toId = toId
         , onKeyDown =
             \code maybeId ->
                 if code == 13 then
-                    Maybe.map SelectPerson maybeId
+                    Maybe.map SelectStudent maybeId
                 else
                     Nothing
         , onTooLow = Nothing
         , onTooHigh = Nothing
         , onMouseEnter = \_ -> Nothing
         , onMouseLeave = \_ -> Nothing
-        , onMouseClick = \id -> Just <| SelectPerson id
+        , onMouseClick = \id -> Just <| SelectStudent id
         , separateSelections = False
         }
 
@@ -139,4 +141,7 @@ toId student =
 
 matchedStudents : String -> List Student -> List Student
 matchedStudents query students =
-    List.filter (String.contains query << String.toLower << .lastName) students
+    let
+        queryLower = String.toLower query
+    in
+        List.filter (String.contains queryLower << String.toLower << toId) students
