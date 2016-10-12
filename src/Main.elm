@@ -116,45 +116,34 @@ update msg model =
                     let
                         choices =
                             matchedStudents model.query model.students
+
+                        ( resetFn, reorderFn ) =
+                            if toTop then
+                                ( Autocomplete.resetToLastItem, List.reverse )
+                            else
+                                ( Autocomplete.resetToFirstItem, List.map identity )
                     in
-                        if toTop then
-                            { model
-                                | autoState = Autocomplete.resetToLastItem updateConfig choices howMany model.autoState
-                                , selected = Maybe.map toId <| List.head <| List.reverse <| List.take howMany choices
-                            }
-                                ! []
-                        else
-                            { model
-                                | autoState = Autocomplete.resetToFirstItem updateConfig choices howMany model.autoState
-                                , selected = Maybe.map toId <| List.head <| List.take howMany choices
-                            }
-                                ! []
+                        { model
+                            | autoState = resetFn updateConfig choices howMany model.autoState
+                            , selected = (Maybe.map toId << List.head << reorderFn << List.take howMany) choices
+                        }
+                            ! []
 
         HandleEscape ->
             let
                 haveMatches =
                     (not << List.isEmpty) (matchedStudents model.query model.students)
 
-                handleEscape =
+                model_ =
                     if haveMatches then
+                        -- leave the query as is; not sure why but that's what the example code does
                         model |> removeSelection |> resetMenu
                     else
                         { model | query = "" } |> removeSelection |> resetMenu
-
-                escapeModel =
-                    case model.selected of
-                        Just person ->
-                            if model.query == person then
-                                model |> resetInput
-                            else
-                                handleEscape
-
-                        Nothing ->
-                            handleEscape
             in
-                escapeModel ! []
+                model_ ! []
 
-        _ ->
+        NoOp ->
             model ! []
 
 
@@ -181,12 +170,13 @@ view model =
     Html.div []
         [ viewSelected model.selected
         , viewAutocomplete model
+        , viewSelected model.selected
         ]
 
 
 viewSelected : Maybe Id -> Html.Html Msg
 viewSelected idMaybe =
-    Html.div [] [ Html.text (Maybe.withDefault "" idMaybe) ]
+    Html.div [] [ Html.text (toString idMaybe) ]
 
 
 viewAutocomplete : Model -> Html.Html Msg
@@ -294,7 +284,8 @@ updateConfig =
                 else if code == arrowUpKey || code == arrowDownKey then
                     Maybe.map PreviewStudent maybeId
                 else
-                    Just Reset
+                    --Just Reset
+                    Nothing
     in
         Autocomplete.updateConfig
             { toId = toId
