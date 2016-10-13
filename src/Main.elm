@@ -14,6 +14,7 @@ import Autocomplete
 type alias Student =
     { firstName : String
     , lastName : String
+    , number : String
     }
 
 
@@ -60,7 +61,7 @@ init =
 
 
 howMany =
-    6
+    100
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -149,7 +150,15 @@ update msg model =
 
 setQuery : Model -> Id -> Model
 setQuery model id =
-    { model | query = id, selected = Just id }
+    let
+        toQuery : Student -> String
+        toQuery student =
+            student.firstName ++ " " ++ student.lastName
+
+        query =
+            getById model.students id |> Maybe.map toQuery |> Maybe.withDefault "?"
+    in
+        { model | query = query, selected = Just id }
 
 
 resetMenu : Model -> Model
@@ -169,8 +178,9 @@ view : Model -> Html.Html Msg
 view model =
     Html.div []
         [ viewSelected model.selected
+        , viewDebug model
         , viewAutocomplete model
-        , viewSelected model.selected
+        , Html.h2 [] [ Html.text "Next" ]
         ]
 
 
@@ -186,7 +196,7 @@ viewAutocomplete model =
             [ ( "display", "flex" )
             , ( "flex-direction", "column" )
             , ( "height", "200px" )
-            , ( "width", "200px" )
+            , ( "width", "250px" )
             ]
 
         options =
@@ -199,12 +209,10 @@ viewAutocomplete model =
                         _ =
                             Debug.log "code" code
                     in
-                        if code == 38 || code == 40 then
-                            Ok NoOp
-                        else if code == 27 then
+                        if code == 27 then
                             Ok HandleEscape
                         else
-                            Err "not handling that key"
+                            Err "ignoring this key here"
                 )
 
         inputValue =
@@ -213,7 +221,7 @@ viewAutocomplete model =
                     model.query
 
                 Just id ->
-                    id
+                    getById model.students id |> Maybe.map toDisplay |> Maybe.withDefault "*error*"
 
         choices =
             matchedStudents model.query model.students
@@ -238,6 +246,15 @@ viewAutocomplete model =
             ]
 
 
+getById : List Student -> Id -> Maybe Student
+getById students id =
+    let
+        matchesId student =
+            toId student == id
+    in
+        students |> List.filter matchesId |> List.head
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.map AutocompleteMsg Autocomplete.subscription
@@ -252,9 +269,10 @@ studentsDecoder : Json.Decoder (List Student)
 studentsDecoder =
     let
         student =
-            Json.object2 Student
+            Json.object3 Student
                 ("FirstName" := Json.string)
                 ("LastName" := Json.string)
+                ("Number" := Json.string)
     in
         Json.list student
 
@@ -309,7 +327,7 @@ viewConfig =
                     , ( "key-selected", keySelected || mouseSelected )
                     ]
                 ]
-            , children = [ Html.text (toId student) ]
+            , children = [ Html.text (toDisplay student) ]
             }
     in
         Autocomplete.viewConfig
@@ -319,9 +337,19 @@ viewConfig =
             }
 
 
+viewDebug : Model -> Html.Html Msg
+viewDebug { selected, query, showMenu, autoState }  =
+    Html.text <| toString <| { selected = selected, query = query, showMenu = showMenu, autoState = autoState }
+
+
 toId : Student -> Id
 toId student =
-    student.lastName ++ ", " ++ student.firstName
+    student.number
+
+
+toDisplay : Student -> String
+toDisplay student =
+    student.firstName ++ " " ++ student.lastName ++ " (" ++ student.number ++ ")"
 
 
 matchedStudents : String -> List Student -> List Student
@@ -330,4 +358,4 @@ matchedStudents query students =
         queryLower =
             String.toLower query
     in
-        List.filter (String.contains queryLower << String.toLower << toId) students
+        List.filter (String.contains queryLower << String.toLower << toDisplay) students
