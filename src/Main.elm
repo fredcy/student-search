@@ -177,7 +177,7 @@ resetInput model =
 view : Model -> Html.Html Msg
 view model =
     Html.div []
-        [ viewSelected model.selected
+        [ Html.h1 [] [ Html.text "Query example" ]
         , viewDebug model
         , viewAutocomplete model
         , Html.h2 [] [ Html.text "Next" ]
@@ -195,7 +195,6 @@ viewAutocomplete model =
         autoStyle =
             [ ( "display", "flex" )
             , ( "flex-direction", "column" )
-            , ( "height", "200px" )
             , ( "width", "250px" )
             ]
 
@@ -338,7 +337,7 @@ viewConfig =
 
 
 viewDebug : Model -> Html.Html Msg
-viewDebug { selected, query, showMenu, autoState }  =
+viewDebug { selected, query, showMenu, autoState } =
     Html.text <| toString <| { selected = selected, query = query, showMenu = showMenu, autoState = autoState }
 
 

@@ -1,6 +1,6 @@
 .autocomplete-menu {
-    position: relative;
-    margin-top: 5px;
+    position: absolute;         /* display overlapping */
+    margin-top: 30px;           /* room for INPUT element */
     background: white;
     color: black;
     border: 1px solid #DDD;
@@ -40,6 +40,7 @@
 
 .autocomplete-input {
     min-width: 120px;
+    max-width: 250px;
     color: black;
     font-size: 12px;
     padding: 4px;
