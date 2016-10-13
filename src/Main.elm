@@ -28,6 +28,7 @@ type alias Model =
     , query : String
     , showMenu : Bool
     , autoState : Autocomplete.State
+    , httpError : Maybe Http.Error
     }
 
 
@@ -45,7 +46,7 @@ type Msg
 
 
 main =
-    Html.App.program
+    Html.App.programWithFlags
         { init = init
         , update = update
         , view = view
@@ -53,10 +54,14 @@ main =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( Model [] Nothing "" False Autocomplete.empty
-    , Task.perform Error GotStudents getStudents
+type alias Flags =
+    { service_url : String }
+
+
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    ( Model [] Nothing "" False Autocomplete.empty Nothing
+    , Task.perform Error GotStudents (getStudents flags.service_url)
     )
 
 
@@ -71,8 +76,7 @@ update msg model =
             { model | students = students } ! []
 
         Error httpError ->
-            --TODO
-            model ! []
+            { model | httpError = Just httpError } ! []
 
         SetQuery query ->
             let
@@ -259,9 +263,9 @@ subscriptions model =
     Sub.map AutocompleteMsg Autocomplete.subscription
 
 
-getStudents : Task Http.Error (List Student)
-getStudents =
-    Http.get studentsDecoder "http://app.devnet.imsa.edu:9080/students"
+getStudents : String -> Task Http.Error (List Student)
+getStudents service_url =
+    Http.get studentsDecoder (service_url ++ "/students")
 
 
 studentsDecoder : Json.Decoder (List Student)
@@ -337,8 +341,9 @@ viewConfig =
 
 
 viewDebug : Model -> Html.Html Msg
-viewDebug { selected, query, showMenu, autoState } =
-    Html.text <| toString <| { selected = selected, query = query, showMenu = showMenu, autoState = autoState }
+viewDebug { selected, query, showMenu, autoState, httpError } =
+    (Html.text << toString)
+        { selected = selected, query = query, showMenu = showMenu, autoState = autoState, httpError = httpError }
 
 
 toId : Student -> Id

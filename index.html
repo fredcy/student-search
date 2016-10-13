@@ -8,7 +8,8 @@
     <body>
         <script src="elm.js"></script>
         <script type="text/javascript">
-         Elm.Main.fullscreen()
+         var flags = { 'service_url': '{{ service_url }}' };
+         Elm.Main.fullscreen(flags)
         </script>
     </body>
 </html>
