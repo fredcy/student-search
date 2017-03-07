@@ -1,11 +1,10 @@
 module Main exposing (main)
 
 import Html
-import Html.App
 import Html.Events as HE
 import Html.Attributes as HA
 import Http
-import Json.Decode as Json exposing ((:=))
+import Json.Decode as Json
 import String
 import Task exposing (Task)
 import Autocomplete
@@ -35,7 +34,8 @@ type alias Model =
 type Msg
     = NoOp
     | Error Http.Error
-    | GotStudents (List Student)
+      --TODO delete above
+    | GotStudents (Result Http.Error (List Student))
     | SetQuery String
     | SelectStudent Id
     | PreviewStudent Id
@@ -46,7 +46,7 @@ type Msg
 
 
 main =
-    Html.App.programWithFlags
+    Html.programWithFlags
         { init = init
         , update = update
         , view = view
@@ -61,7 +61,7 @@ type alias Flags =
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( Model [] Nothing "" False Autocomplete.empty Nothing
-    , Task.perform Error GotStudents (getStudents flags.service_url)
+    , Http.send GotStudents (getStudents flags.service_url)
     )
 
 
@@ -72,9 +72,15 @@ howMany =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg |> Debug.log "msg" of
-        GotStudents students ->
-            { model | students = students } ! []
+        GotStudents studentsResult ->
+            case studentsResult of
+                Ok students ->
+                    { model | students = students } ! []
 
+                Err httpError ->
+                    { model | httpError = Just httpError } ! []
+
+        -- TODO remove
         Error httpError ->
             { model | httpError = Just httpError } ! []
 
@@ -193,6 +199,22 @@ viewSelected idMaybe =
     Html.div [] [ Html.text (toString idMaybe) ]
 
 
+decodeKey : Json.Decoder Msg
+decodeKey =
+    HE.keyCode
+        |> Json.andThen
+            (\code ->
+                let
+                    _ =
+                        Debug.log "code" code
+                in
+                    if code == 27 then
+                        Json.succeed HandleEscape
+                    else
+                        Json.fail "ignoring this key here"
+            )
+
+
 viewAutocomplete : Model -> Html.Html Msg
 viewAutocomplete model =
     let
@@ -204,19 +226,6 @@ viewAutocomplete model =
 
         options =
             { preventDefault = True, stopPropagation = False }
-
-        decodeKey =
-            Json.customDecoder HE.keyCode
-                (\code ->
-                    let
-                        _ =
-                            Debug.log "code" code
-                    in
-                        if code == 27 then
-                            Ok HandleEscape
-                        else
-                            Err "ignoring this key here"
-                )
 
         inputValue =
             case model.selected of
@@ -232,7 +241,7 @@ viewAutocomplete model =
         menu =
             if model.showMenu then
                 Html.div [ HA.class "autocomplete-menu" ]
-                    [ Html.App.map AutocompleteMsg (Autocomplete.view viewConfig howMany model.autoState choices)
+                    [ Html.map AutocompleteMsg (Autocomplete.view viewConfig howMany model.autoState choices)
                     ]
             else
                 Html.text ""
@@ -263,19 +272,19 @@ subscriptions model =
     Sub.map AutocompleteMsg Autocomplete.subscription
 
 
-getStudents : String -> Task Http.Error (List Student)
+getStudents : String -> Http.Request (List Student)
 getStudents service_url =
-    Http.get studentsDecoder (service_url ++ "/students")
+    Http.get (service_url ++ "/students") studentsDecoder
 
 
 studentsDecoder : Json.Decoder (List Student)
 studentsDecoder =
     let
         student =
-            Json.object3 Student
-                ("FirstName" := Json.string)
-                ("LastName" := Json.string)
-                ("Number" := Json.string)
+            Json.map3 Student
+                (Json.field "FirstName" Json.string)
+                (Json.field "LastName" Json.string)
+                (Json.field "Number" Json.string)
     in
         Json.list student
 
